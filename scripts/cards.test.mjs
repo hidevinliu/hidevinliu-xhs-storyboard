@@ -198,3 +198,11 @@ test("the structured layouts only use the card variables and nothing under 28px"
   assert.ok(Math.min(...sizes) >= 26, `smallest font ${Math.min(...sizes)}px`);
   assert.equal([...part.matchAll(/font-size:(\d+)px/g)].length, 0, "every structured size scales with --sb-k");
 });
+
+test("Markdown pages (statement, list, steps, compare) scale with --sb-k too, so a short page fills instead of floating small", () => {
+  const css = readFileSync(new URL("../assets/cards.css", import.meta.url), "utf8");
+  const part = css.slice(css.indexOf("/* Markdown cards"), css.indexOf("/* structured layouts"));
+  assert.ok(part.includes(".is-list li") && part.includes(".is-compare table"));
+  assert.equal([...part.matchAll(/font-size:(\d+)px/g)].length, 0, "every Markdown-page size scales with --sb-k");
+  assert.match(part, /font-size:calc\(var\(--statement-size\)\*var\(--sb-k,1\)\)/);
+});

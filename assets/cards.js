@@ -790,7 +790,7 @@ function bodyCard(doc, deck, row, total) {
   return card;
 }
 
-/** How far a short structured card may grow: up to this share of its body box, and at most this font multiplier. */
+/** How far a short card (any body page, not the cover) may grow: up to this share of its body box, and at most this font multiplier. */
 const FILL = 0.78;
 const MAX_SCALE = 1.6;
 
@@ -801,7 +801,11 @@ const MAX_SCALE = 1.6;
 function grow(card) {
   const body = card.querySelector(".xs-body");
   const content = card.querySelector(".xs-content");
-  const fits = () => content.getBoundingClientRect().height <= body.clientHeight * FILL && content.scrollWidth <= body.clientWidth + 2;
+  // Table cells and list items must not gain a line as they grow: 「ChatGPT 账 / 号」 is worse than smaller type.
+  const wrapped = Array.from(content.querySelectorAll("th, td, li"));
+  const base = wrapped.map(lineCount);
+  const fits = () => content.getBoundingClientRect().height <= body.clientHeight * FILL && content.scrollWidth <= body.clientWidth + 2 &&
+    wrapped.every((el, i) => lineCount(el) <= base[i]);
   if (!fits()) return 1;
   let k = 1;
   while (k < MAX_SCALE) {
@@ -811,6 +815,13 @@ function grow(card) {
     k = next;
   }
   return k;
+}
+
+/** Lines an element's text takes: distinct line tops among its text boxes. */
+function lineCount(el) {
+  const range = el.ownerDocument.createRange();
+  range.selectNodeContents(el);
+  return new Set(Array.from(range.getClientRects(), (r) => Math.round(r.top))).size;
 }
 
 /** How many px the card's content runs past its box (0 when it fits). */
@@ -845,7 +856,7 @@ export async function start(doc, deck) {
   return {
     pages: rows.map((row, i) => {
       const card = cards[i];
-      const scale = card.querySelector(".xs-body.is-structured") ? grow(card) : 1;
+      const scale = card.querySelector(".xs-body") ? grow(card) : 1;
       return { page: row.page, layout: row.layout, overflow: overflowPx(card), scale };
     }),
     covers: covers.map((card, i) => ({ label: `封面 ${coverLetter(i)}`, overflow: overflowPx(card) })),
