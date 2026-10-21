@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>xhs-storyboard</title>
+<!-- scripts/render.mjs fills the three slots below and opens this page in headless Chrome. -->
+<style>/*CARDS_CSS*/</style>
+</head>
+<body>
+<div id="cards"></div>
+<script type="application/json" id="deck">/*DECK_JSON*/</script>
+<script type="module">
+/*CARDS_JS*/
+window.__xhs = start(document, JSON.parse(document.getElementById("deck").textContent));
+</script>
+</body>
+</html>

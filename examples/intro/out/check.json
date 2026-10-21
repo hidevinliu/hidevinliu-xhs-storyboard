@@ -1,0 +1,119 @@
+{
+  "ok": true,
+  "title": "小红书图文，先分镜再出图",
+  "theme": "light",
+  "motives": [
+    "result",
+    "relate"
+  ],
+  "palette": {
+    "vars": {
+      "bg": "#fff8f9",
+      "ink": "#241a1c",
+      "muted": "#6c6062",
+      "accent": "#d22f69",
+      "line": "#eedcdf",
+      "panel": "#fffdfd",
+      "code": "#faecee",
+      "grid": "transparent"
+    },
+    "adjustments": [
+      {
+        "role": "accent",
+        "from": "#d6336c",
+        "to": "#d22f69",
+        "before": 4.41,
+        "after": 4.61
+      }
+    ]
+  },
+  "pages": [
+    {
+      "page": 1,
+      "layout": "cover",
+      "overflow": 0,
+      "scale": 1,
+      "name": "封面",
+      "file": "01.png"
+    },
+    {
+      "page": 2,
+      "layout": "timeline",
+      "overflow": 0,
+      "scale": 1.3,
+      "name": "时间线",
+      "file": "02.png"
+    },
+    {
+      "page": 3,
+      "layout": "window",
+      "overflow": 0,
+      "scale": 1,
+      "name": "窗口截图",
+      "file": "03.png"
+    },
+    {
+      "page": 4,
+      "layout": "chat",
+      "overflow": 0,
+      "scale": 1.6,
+      "name": "对话",
+      "file": "04.png"
+    },
+    {
+      "page": 5,
+      "layout": "rightwrong",
+      "overflow": 0,
+      "scale": 1.6,
+      "name": "对错",
+      "file": "05.png"
+    },
+    {
+      "page": 6,
+      "layout": "code",
+      "overflow": 0,
+      "scale": 1.2,
+      "name": "代码",
+      "file": "06.png"
+    },
+    {
+      "page": 7,
+      "layout": "metric",
+      "overflow": 0,
+      "scale": 1,
+      "name": "数据",
+      "file": "07.png"
+    },
+    {
+      "page": 8,
+      "layout": "checklist",
+      "overflow": 0,
+      "scale": 1.6,
+      "name": "清单",
+      "file": "08.png"
+    },
+    {
+      "page": 9,
+      "layout": "ending",
+      "overflow": 0,
+      "scale": 1,
+      "name": "结尾",
+      "file": "09.png"
+    }
+  ],
+  "covers": [
+    {
+      "text": "先出分镜，再出图",
+      "motive": "result",
+      "file": "cover-a.png",
+      "overflow": 0
+    },
+    {
+      "text": "笔记做成图，先别急着排版",
+      "motive": "relate",
+      "file": "cover-b.png",
+      "overflow": 0
+    }
+  ],
+  "issues": []
+}

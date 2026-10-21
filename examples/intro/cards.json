@@ -1,0 +1,52 @@
+{
+  "title": "小红书图文，先分镜再出图",
+  "subtitle": "15 种版式，出图前自动检查",
+  "author": "xhs-storyboard 示例",
+  "theme": "light",
+  "accent": "#d6336c",
+  "source": "source.md",
+  "motives": ["result", "relate"],
+  "covers": [
+    { "text": "先出分镜，再出图", "motive": "result" },
+    { "text": "笔记做成图，先别急着排版", "motive": "relate" }
+  ],
+  "cards": [
+    { "layout": "cover", "text": "先出分镜，再出图", "figure": { "source": "none", "note": "" } },
+    {
+      "layout": "timeline",
+      "text": "读材料｜定一句读者要带走的话\n出分镜｜每页的版式和文字，等你确认\n出图｜写 cards.json，跑渲染脚本\n检查｜按报错改完，再跑一遍",
+      "figure": { "source": "none", "note": "" }
+    },
+    {
+      "layout": "window",
+      "text": "![分镜表](shots/storyboard.png)\n分镜表：版式、文字、配图，确认后才出图",
+      "figure": { "source": "ready", "note": "render.mjs --storyboard 画出的这组图的分镜表" }
+    },
+    {
+      "layout": "chat",
+      "text": "问：没有我的真实截图怎么办？\n答：分镜里标成 yours。\n没给图就拦下，不画假图。",
+      "figure": { "source": "none", "note": "" }
+    },
+    {
+      "layout": "rightwrong",
+      "text": "✓ 一页只讲一件事\n✗ 一页塞进三个观点\n✓ 数字照抄原文\n✗ 编一张截图凑数",
+      "figure": { "source": "none", "note": "" }
+    },
+    {
+      "layout": "code",
+      "text": "文件：cards.json\n{\n  \"title\": \"先分镜再出图\",\n  \"theme\": \"light\",\n  \"accent\": \"#d6336c\",\n  \"motives\": [\"result\"],\n  \"cards\": [\n    { \"layout\": \"cover\",\n      \"text\": \"先出分镜，再出图\" }\n  ]\n}",
+      "figure": { "source": "none", "note": "" }
+    },
+    {
+      "layout": "metric",
+      "text": "15｜种｜版式\n2｜套｜外观\n0｜个｜npm 依赖",
+      "figure": { "source": "none", "note": "" }
+    },
+    {
+      "layout": "checklist",
+      "text": "[x] 文字没有超出卡片\n[x] 没有留下占位文字\n[x] yours 的截图都已给\n[x] 数字都能在原文找到",
+      "figure": { "source": "none", "note": "" }
+    },
+    { "layout": "ending", "text": "你手上哪篇笔记，最想先做成图？", "figure": { "source": "none", "note": "" } }
+  ]
+}
