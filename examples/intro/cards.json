@@ -1,6 +1,6 @@
 {
   "title": "小红书图文，先分镜再出图",
-  "subtitle": "15 种版式，出图前自动检查",
+  "subtitle": "16 种版式，出图前自动检查",
   "author": "xhs-storyboard 示例",
   "theme": "light",
   "accent": "#d6336c",
@@ -13,9 +13,9 @@
   "cards": [
     { "layout": "cover", "text": "先出分镜，再出图", "figure": { "source": "none", "note": "" } },
     {
-      "layout": "timeline",
-      "text": "读材料｜定一句读者要带走的话\n出分镜｜每页的版式和文字，等你确认\n出图｜写 cards.json，跑渲染脚本\n检查｜按报错改完，再跑一遍",
-      "figure": { "source": "none", "note": "" }
+      "layout": "chart",
+      "text": "流程：从材料到出图\n读材料 → 定一句带走点\n出分镜 → 等你确认\n写 cards.json\n渲染出图 → 报错就改，再跑",
+      "figure": { "source": "draw", "note": "从材料到出图的四步" }
     },
     {
       "layout": "window",
@@ -28,20 +28,16 @@
       "figure": { "source": "none", "note": "" }
     },
     {
-      "layout": "rightwrong",
-      "text": "✓ 一页只讲一件事\n✗ 一页塞进三个观点\n✓ 数字照抄原文\n✗ 编一张截图凑数",
-      "figure": { "source": "none", "note": "" }
+      "layout": "chart",
+      "text": "环形：16 种版式怎么排\n按行格式画成固定结构｜10 种\n按 Markdown 排｜6 种",
+      "figure": { "source": "draw", "note": "16 种版式里两种排法各占多少" }
     },
     {
       "layout": "code",
       "text": "文件：cards.json\n{\n  \"title\": \"先分镜再出图\",\n  \"theme\": \"light\",\n  \"accent\": \"#d6336c\",\n  \"motives\": [\"result\"],\n  \"cards\": [\n    { \"layout\": \"cover\",\n      \"text\": \"先出分镜，再出图\" }\n  ]\n}",
       "figure": { "source": "none", "note": "" }
     },
-    {
-      "layout": "metric",
-      "text": "15｜种｜版式\n2｜套｜外观\n0｜个｜npm 依赖",
-      "figure": { "source": "none", "note": "" }
-    },
+    { "layout": "metric", "text": "16｜种｜版式\n2｜套｜外观\n0｜个｜npm 依赖", "figure": { "source": "none", "note": "" } },
     {
       "layout": "checklist",
       "text": "[x] 文字没有超出卡片\n[x] 没有留下占位文字\n[x] yours 的截图都已给\n[x] 数字都能在原文找到",

@@ -5,7 +5,7 @@
 ```json
 {
   "title": "小红书图文，先分镜再出图",
-  "subtitle": "15 种版式，出图前自动检查",
+  "subtitle": "16 种版式，出图前自动检查",
   "author": "署名（可选）",
   "date": "2026.10.21（可选）",
   "theme": "light",
@@ -42,9 +42,9 @@
 
 | 字段 | 说明 |
 |---|---|
-| `layout` | 15 种之一：`cover` `statement` `list` `steps` `compare` `window` `phone` `code` `prompt` `chat` `metric` `rightwrong` `timeline` `checklist` `ending`。写法见 `layouts.md`。 |
+| `layout` | 16 种之一：`cover` `statement` `list` `steps` `compare` `window` `phone` `code` `prompt` `chat` `metric` `rightwrong` `timeline` `checklist` `chart` `ending`。写法见 `layouts.md`。 |
 | `text` | 卡片文字。图片写成 Markdown `![说明](相对路径.png)`，支持 png / jpg / gif / webp / svg；网址图片要先下载到本地。 |
-| `figure` | `{ "source": "none" | "ready" | "yours", "note": "要什么图" }`，不写等于 `none`。 |
+| `figure` | `{ "source": "none" | "ready" | "yours" | "draw", "note": "要什么图" }`，不写等于 `none`。`draw`（代码画）只配 `chart` 版式。 |
 
 第 1 张是 `cover` 且不超过 24 字时，它做封面大字（页码 1），后面的卡片从第 2 页排起；否则封面用 `title`，所有卡片从第 2 页排起。写了 `covers` 时，封面大字一律用 `covers[0]`，第 1 张 cover 卡只占位（文字建议和 `covers[0]` 一致）。
 

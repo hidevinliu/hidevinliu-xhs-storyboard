@@ -98,12 +98,13 @@ test("end to end: a deck with problems is stopped with the reasons and no pictur
         { layout: "window", text: "后台在这", figure: { source: "yours", note: "数据后台截图" } },
         { layout: "metric", text: "42｜次｜重试" },
         { layout: "statement", text: "很长的一段话。".repeat(60) },
+        { layout: "chart", text: `对比：99 个差别\n以前｜现在\n${"以前要花很多时间一张一张对齐排版｜现在先出分镜表再统一出图\n".repeat(6)}`, figure: { source: "draw", note: "以前和现在" } },
         { layout: "ending", text: "就这样" },
       ],
     }));
     const r = render(SKILL, join(tmp, "cards.json"));
     assert.equal(r.code, 1, r.out);
-    for (const want of ["第 2 张缺你的真实截图：数据后台截图", "第 3 张的数字 42 在原文里找不到", "第 4 张文字超出卡片", "最后一张要用 ending 版式，并用一个问题收尾", "揭晓答案", "没有出图"]) assert.ok(r.out.includes(want), `missing: ${want}\n${r.out}`);
+    for (const want of ["第 2 张缺你的真实截图：数据后台截图", "第 3 张的数字 42 在原文里找不到", "第 4 张文字超出卡片", "第 5 张的数字 99 在原文里找不到", "第 5 张文字超出卡片", "最后一张要用 ending 版式，并用一个问题收尾", "揭晓答案", "没有出图"]) assert.ok(r.out.includes(want), `missing: ${want}\n${r.out}`);
     const out = join(tmp, "out");
     assert.deepEqual(readdirSync(out), ["check.json"]);
     assert.equal(JSON.parse(readFileSync(join(out, "check.json"), "utf8")).ok, false);

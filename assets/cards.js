@@ -11,18 +11,18 @@ export const CARD_HEIGHT = 1440;
 /** 小红书 takes at most 18 pictures per note. */
 export const XHS_IMAGES_MAX = 18;
 
-/** The 15 layouts, in the order the storyboard lists them. */
+/** The 16 layouts, in the order the storyboard lists them. */
 export const LAYOUTS = [
   { id: "cover", name: "封面" }, { id: "statement", name: "一句话" }, { id: "list", name: "要点" }, { id: "steps", name: "步骤" },
   { id: "compare", name: "对比表" }, { id: "window", name: "窗口截图" }, { id: "phone", name: "手机截图" }, { id: "code", name: "代码" },
   { id: "prompt", name: "提示词" }, { id: "chat", name: "对话" }, { id: "metric", name: "数据" }, { id: "rightwrong", name: "对错" },
-  { id: "timeline", name: "时间线" }, { id: "checklist", name: "清单" }, { id: "ending", name: "结尾" },
+  { id: "timeline", name: "时间线" }, { id: "checklist", name: "清单" }, { id: "chart", name: "图表" }, { id: "ending", name: "结尾" },
 ];
 const LAYOUT_IDS = new Set(LAYOUTS.map((l) => l.id));
 export const layoutName = (id) => LAYOUTS.find((l) => l.id === id)?.name ?? id;
 
 /** Layouts drawn from the card text's line format instead of from Markdown. */
-const STRUCTURED = new Set(["window", "phone", "code", "prompt", "chat", "metric", "rightwrong", "timeline", "checklist"]);
+const STRUCTURED = new Set(["window", "phone", "code", "prompt", "chat", "metric", "rightwrong", "timeline", "checklist", "chart"]);
 export const isStructured = (kind) => STRUCTURED.has(kind);
 /** Layouts that hold a screenshot. */
 export const isShot = (kind) => kind === "window" || kind === "phone";
@@ -317,10 +317,11 @@ export function miniMarkdown(text) {
 // ---------------------------------------------------------------------------------------------------------------
 // The deck: validation, storyboard rows, checks
 
-/** What picture a card needs. */
+/** What picture a card needs; "draw" is a chart our code draws from the card text (layout "chart"). */
+export const FIGURE_SOURCES = ["none", "ready", "yours", "draw"];
 export function cardFigure(raw) {
   const f = raw && typeof raw === "object" ? raw : {};
-  return f.source === "ready" || f.source === "yours" ? { source: f.source, note: typeof f.note === "string" ? f.note : "" } : { source: "none", note: typeof f.note === "string" ? f.note : "" };
+  return f.source === "ready" || f.source === "yours" || f.source === "draw" ? { source: f.source, note: typeof f.note === "string" ? f.note : "" } : { source: "none", note: typeof f.note === "string" ? f.note : "" };
 }
 
 /**
@@ -374,8 +375,8 @@ export function normalizeDeck(raw) {
     if (!LAYOUT_IDS.has(layout)) err(null, `${at} 的 layout ${JSON.stringify(card.layout)} 不认识，可用：${LAYOUTS.map((l) => l.id).join(" / ")}`);
     const text = typeof card.text === "string" ? card.text : "";
     if (!text.trim()) err(null, `${at} 的 text 是空的`);
-    if (card.figure !== undefined && (typeof card.figure !== "object" || !["none", "ready", "yours"].includes(card.figure?.source))) {
-      err(null, `${at} 的 figure.source 只能是 none / ready / yours`);
+    if (card.figure !== undefined && (typeof card.figure !== "object" || !FIGURE_SOURCES.includes(card.figure?.source))) {
+      err(null, `${at} 的 figure.source 只能是 ${FIGURE_SOURCES.join(" / ")}`);
     }
     cards.push({ layout: LAYOUT_IDS.has(layout) ? layout : "statement", text, figure: cardFigure(card.figure) });
   });
@@ -404,7 +405,8 @@ const pageName = (n) => (n === null || n === undefined ? "" : `第 ${n} 张`);
 
 /**
  * Errors that stop the pictures from being written: text cut off by the card's edge, a 「待补」 placeholder left on a
- * card, a picture only the author can give (`yours`) that isn't there.
+ * card, a picture only the author can give (`yours`) that isn't there, a chart whose line format is wrong. (Every number on
+ * a chart is traced to the source by checkNumbers, like every other card.)
  * `overflow` is [{ page, px, label? }] from the page (label names a cover candidate instead of a page number).
  */
 export function checkCards({ rows, overflow = [] }) {
@@ -415,6 +417,11 @@ export function checkCards({ rows, overflow = [] }) {
       out.push({ level: "error", page: row.page, message: `${pageName(row.page)}缺你的真实截图：${row.figure.note.trim() || "这张需要一张真实截图"}。把图放进 cards.json 旁边，在 text 里写 ![](文件名.png)；没有图就换个版式，不要画假截图` });
     } else if ((isShot(row.layout) && !picture) || row.text.includes("待补")) {
       out.push({ level: "error", page: row.page, message: `${pageName(row.page)}还有「待补」占位：补上图，或换个不需要图的版式` });
+    }
+    if (row.layout === "chart") {
+      for (const problem of parseChart(row.text).problems) out.push({ level: "error", page: row.page, message: `${pageName(row.page)}的图表：${problem}` });
+    } else if (row.figure.source === "draw") {
+      out.push({ level: "warn", page: row.page, message: `${pageName(row.page)}的 figure 是 draw（代码画），layout 要用 chart 才会画出来` });
     }
   }
   for (const o of overflow) out.push({ level: "error", page: o.page ?? null, message: `${o.label ?? pageName(o.page)}文字超出卡片 ${o.px}px，会被截掉：删减文字、拆成两页或换个版式` });
@@ -581,7 +588,7 @@ export function storyboardHtml(deck) {
   const rows = [{ page: 1, layout: "cover", text: headlineOf(deck, cover), figure: cardFigure(null) }, ...body];
   const motives = deck.motives?.length ? ` · 动机：${deck.motives.map(motiveName).join("、")}` : "";
   const covers = deck.covers?.length > 1 ? ` · 封面备选：${deck.covers.map((c, i) => `${coverLetter(i)}「${c.text}」`).join(" ")}` : "";
-  const fig = { none: "不配图", ready: "现成图", yours: "要你给" };
+  const fig = { none: "不配图", ready: "现成图", yours: "要你给", draw: "代码画" };
   const copy = (t) => escapeHtml(t.replace(new RegExp(IMAGE.source, "g"), (_, alt, src) => `[图 ${alt || src.slice(0, 40)}]`)).replace(/\n/g, "<br>");
   const tr = rows.map((r) => `<tr><td class="n">${r.page}</td><td class="l">${escapeHtml(layoutName(r.layout))}<small>${escapeHtml(r.layout)}</small></td><td class="t"><div>${copy(r.text)}</div></td><td class="f"><b class="${r.figure.source}">${fig[r.figure.source]}</b>${r.figure.note ? `<small>${escapeHtml(r.figure.note)}</small>` : ""}</td></tr>`).join("");
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>分镜表</title><style>
@@ -600,8 +607,310 @@ td.f{width:230px}
 td.f b{display:inline-block;padding:1px 10px;border-radius:6px;font-size:16px;font-weight:600;background:#f2efe9}
 td.f b.yours{background:#d9480f;color:#fff}
 td.f b.ready{background:#1d1c1a;color:#fff}
+td.f b.draw{background:#fff;color:#d9480f;box-shadow:inset 0 0 0 2px #d9480f}
 </style></head><body><main><h1>分镜表 · ${escapeHtml(deck.title)}</h1><p class="s">${rows.length} 张 · ${escapeHtml(THEMES[deck.theme]?.name ?? deck.theme)}${escapeHtml(motives)}${escapeHtml(covers)}</p>
 <table><thead><tr><th>页</th><th>版式</th><th>卡片文字</th><th>配图</th></tr></thead><tbody>${tr}</tbody></table></main></body></html>`;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Charts (layout "chart", figure "draw"): the card text is a line format whose first line names the chart type. Our own
+// deterministic drawing, no chart library and no script from the copy: text stays HTML (it wraps, grows with --sb-k and
+// is measured for overflow), the marks are inline SVG, colours are the card variables, values are shown as written.
+
+/** Chart types with the names the first line may use. */
+export const CHART_TYPES = [
+  { id: "bar", name: "柱状", aliases: ["柱状", "柱状图", "条形", "条形图"] },
+  { id: "line", name: "折线", aliases: ["折线", "折线图"] },
+  { id: "donut", name: "环形", aliases: ["环形", "环形图", "饼图"] },
+  { id: "flow", name: "流程", aliases: ["流程", "流程图"] },
+  { id: "compare", name: "对比", aliases: ["对比", "对比图"] },
+  { id: "matrix", name: "矩阵", aliases: ["矩阵", "四象限"] },
+  { id: "timeline", name: "时间轴", aliases: ["时间轴", "时间线"] },
+];
+/** Items per type: fewer says nothing, more doesn't fit a 3:4 card. */
+export const CHART_LIMITS = { bar: [2, 8], line: [2, 8], donut: [2, 6], flow: [2, 6], compare: [1, 6], timeline: [2, 6] };
+const LIST_MARKER = /^\s*\d+(?:[.)]\s+|、\s*)/;
+
+/** The first number in a written value: 「1,234 次」 → 1234, 「-3.5%」 → -3.5; none → null. */
+export function numberOf(raw) {
+  return magnitude(raw)?.value ?? null;
+}
+
+/** Time units in seconds: a duration is drawn by its length, whatever unit it's written in. */
+const TIME_UNITS = {
+  h: 3600, hr: 3600, 小时: 3600, m: 60, min: 60, 分: 60, 分钟: 60, s: 1, sec: 1, 秒: 1,
+  ms: 1e-3, 毫秒: 1e-3, us: 1e-6, "µs": 1e-6, 微秒: 1e-6, ns: 1e-9, 纳秒: 1e-9,
+};
+
+/**
+ * What a written value measures, for drawing only (the card shows it as written): 「8m30s」 → 510 time, 「0.082s (1.00x)」
+ * → 0.082 time, 「45%」 → 45 %, 「1,234 次」 → 1234 次. Several time parts add up; otherwise the first number and its unit.
+ */
+export function magnitude(raw) {
+  const pairs = [...digits(String(raw)).replace(/(\d)[,，](?=\d{3}(?!\d))/g, "$1").matchAll(/(-?\d+(?:\.\d+)?)\s*(小时|分钟|毫秒|微秒|纳秒|[a-zA-Zµ%]+|[一-鿿])?/g)]
+    .map((m) => ({ n: Number(m[1]), unit: m[2] ?? "" }));
+  if (!pairs.length) return null;
+  const time = (u) => TIME_UNITS[u] ?? TIME_UNITS[u.replace(/s$/, "")];
+  if (pairs.length > 1 && pairs.every((p) => time(p.unit) !== undefined)) return { value: pairs.reduce((sum, p) => sum + p.n * time(p.unit), 0), unit: "time" };
+  const first = pairs[0];
+  return time(first.unit) !== undefined ? { value: first.n * time(first.unit), unit: "time" } : { value: first.n, unit: first.unit };
+}
+
+/** The type and optional title from the first line: 「柱状」「柱状：冷启动耗时」「折线图｜周活」. */
+export function chartHeader(line) {
+  const m = /^([^\s:：｜|]+)\s*(?:[:：｜|]\s*(.*))?$/.exec(String(line).trim());
+  const type = m && CHART_TYPES.find((t) => t.aliases.includes(m[1]));
+  return type ? { type: type.id, title: (m[2] ?? "").trim() } : null;
+}
+
+/** Card text → { chart, problems }: an unknown first line gives no chart; otherwise what could be read, plus what's wrong. */
+export function parseChart(text) {
+  const all = lines(String(text));
+  const head = chartHeader(all[0] ?? "");
+  if (!head) return { chart: null, problems: [`第一行要写图的类型（${CHART_TYPES.map((t) => t.name).join("、")}），现在是「${all[0] ?? ""}」`] };
+  const problems = [];
+  const rest = all.slice(1);
+  const { type, title } = head;
+  const count = (n, what) => {
+    const [min, max] = CHART_LIMITS[type];
+    if (n < min || n > max) problems.push(`${CHART_TYPES.find((t) => t.id === type).name}图要 ${min}–${max} ${what}，现在 ${n} ${what}`);
+  };
+  if (type === "bar" || type === "line" || type === "donut") {
+    let unit = "";
+    const points = [];
+    const units = new Map();
+    for (const line of rest) {
+      const u = /^单位\s*[:：]\s*(.+)$/.exec(line);
+      if (u) { unit = u[1].trim(); continue; }
+      const parts = cells(line);
+      if (parts.length < 2 || !parts[0] || !parts[1]) { problems.push(`「${line}」要写成「名称｜数值」`); continue; }
+      const m = magnitude(parts[1]);
+      if (!m) { problems.push(`「${parts[0]}」的数值「${parts[1]}」里没有数字`); continue; }
+      if (type === "donut" && m.value <= 0) { problems.push(`环形图的数值要大于 0，「${parts[0]}」是 ${parts[1]}`); continue; }
+      if (m.unit && !units.has(m.unit)) units.set(m.unit, parts[0]);
+      points.push({ name: parts[0], raw: parts.slice(1).join("｜"), value: m.value });
+    }
+    // 「3 秒」 and 「3 MB」 can't share an axis (times in any unit can).
+    if (units.size > 1) problems.push(`数值的单位不一致（${[...units].map(([u, name]) => `「${name}」是 ${u === "time" ? "时间" : u}`).join("，")}）：一张图只放同一种单位，或拆成两张图`);
+    count(points.length, "项");
+    return { chart: { type, title, unit, points }, problems };
+  }
+  if (type === "flow") {
+    const steps = rest.map((line) => {
+      const [step = "", ...note] = line.replace(LIST_MARKER, "").split(/\s*(?:→|->)\s*/);
+      return { text: step, note: note.join(" → ") };
+    }).filter((s) => s.text);
+    count(steps.length, "步");
+    return { chart: { type, title, steps }, problems };
+  }
+  if (type === "compare") {
+    const rows = rest.map(cells);
+    const bad = rows.find((r) => r.length < 2);
+    if (bad) problems.push(`对比图每行写「左｜右」，「${bad.join("")}」只有一边`);
+    const [headRow = ["", ""], ...body] = rows.filter((r) => r.length >= 2);
+    count(body.length, "行（不算第一行表头）");
+    return { chart: { type, title, left: headRow[0] ?? "", right: headRow.slice(1).join("｜"), rows: body.map((r) => [r[0], r.slice(1).join("｜")]) }, problems };
+  }
+  if (type === "matrix") {
+    let x = "", y = "";
+    const free = [];
+    const quads = [];
+    for (const line of rest) {
+      const axis = /^(横轴|纵轴|[xXyY]\s*轴)\s*[:：]\s*(.*)$/.exec(line);
+      if (axis) { if (/横|x/i.test(axis[1])) x = axis[2].trim(); else y = axis[2].trim(); continue; }
+      const parts = cells(line);
+      if (parts.length >= 2) quads.push({ name: parts[0], text: parts.slice(1).join("｜") });
+      else free.push(line);
+    }
+    if (!x && free.length) x = free.shift();
+    if (!y && free.length) y = free.shift();
+    if (!x || !y) problems.push("矩阵图前两行写横轴和纵轴的名字（「横轴：…」「纵轴：…」）");
+    if (free.length) problems.push(`矩阵图多出的行要写成「象限名｜内容」：「${free[0]}」`);
+    if (quads.length !== 4) problems.push(`矩阵图要正好 4 个象限（左上、右上、左下、右下），现在 ${quads.length} 个`);
+    return { chart: { type, title, x, y, quads: quads.slice(0, 4) }, problems };
+  }
+  const events = rest.map((line) => {
+    const [time = "", ...event] = cells(line);
+    return event.length ? { time, event: event.join("｜") } : { time: "", event: line };
+  });
+  const loose = events.find((e) => !e.time);
+  if (loose) problems.push(`时间轴每行写「时间｜事件」，「${loose.event}」没有时间`);
+  count(events.length, "件事");
+  return { chart: { type, title, events }, problems };
+}
+
+/** Accent opacity per item: the first item (the one the text puts first) is the full accent. */
+export const SHADES = [1, 0.66, 0.46, 0.32, 0.22, 0.15];
+const r2 = (n) => Math.round(n * 100) / 100;
+
+/** Bar lengths as shares of the longest (0–1); at or below 0 there's no bar. */
+export function barShares(values) {
+  const max = Math.max(...values.map(Math.abs), 0);
+  return values.map((v) => (max > 0 ? Math.round((Math.max(0, v) / max) * 1000) / 1000 : 0));
+}
+
+/** Line points in % of the plot: x at column centres, y from 92% (0, or the lowest value if negative) up to 14% (the highest). No axis numbers: they'd be numbers the source doesn't have. */
+export function linePoints(values) {
+  const lo = Math.min(0, ...values);
+  const hi = Math.max(...values);
+  const span = hi > lo ? hi - lo : 1;
+  return values.map((v, i) => ({ x: r2(((i + 0.5) / values.length) * 100), y: r2(92 - ((v - lo) / span) * 78) }));
+}
+
+/** Width (px at the 36px time font, before --sb-k) for the timeline's time column: CJK at 1em, narrower at 0.62em. */
+export function timeWidth(times) {
+  const em = (t) => Array.from(t).reduce((w, ch) => w + (/[⺀-￿]/.test(ch) ? 1 : ch === " " ? 0.3 : 0.62), 0);
+  return Math.ceil(Math.max(2, ...times.map(em)) * 36) + 8;
+}
+
+const RING_R = 78;
+const RING_C = 2 * Math.PI * RING_R;
+/** Ring segments as stroke dashes on a circle of radius 78, with a small gap between them. */
+export function ringSegments(values) {
+  const total = values.reduce((a, b) => a + b, 0);
+  const gap = values.length > 1 ? 2.4 : 0;
+  let at = 0;
+  return values.map((v) => {
+    const full = total > 0 ? (v / total) * RING_C : 0;
+    const seg = { length: r2(Math.max(0, full - gap)), offset: at ? r2(-at) : 0 };
+    at += full;
+    return seg;
+  });
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svgEl(doc, tag, attrs) {
+  const node = doc.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+  return node;
+}
+const svgBox = (doc, cls, viewBox, stretch = false) => svgEl(doc, "svg", { class: `ch-svg ${cls}`, viewBox, ...(stretch ? { preserveAspectRatio: "none" } : {}), "aria-hidden": "true" });
+
+/** The card body for a chart (text only through textContent; attributes carry numbers computed here). */
+export function buildChart(doc, text) {
+  const { chart, problems } = parseChart(text);
+  const root = el(doc, "div", `sb sb-chart${chart ? ` ch-is-${chart.type}` : ""}`);
+  if (!chart) { root.append(el(doc, "div", "sb-todo", `图表格式不对：${problems[0]}`)); return root; }
+  if (chart.title || chart.unit) {
+    const head = el(doc, "div", "ch-top");
+    if (chart.title) head.append(el(doc, "div", "ch-title", chart.title));
+    if (chart.unit) head.append(el(doc, "div", "ch-unit", `单位：${chart.unit}`));
+    root.append(head);
+  }
+  if (chart.type === "bar") {
+    const box = el(doc, "div", `ch-bars${chart.points.length > 5 ? " is-dense" : ""}`);
+    const shares = barShares(chart.points.map((p) => p.value));
+    chart.points.forEach((p, i) => {
+      const row = el(doc, "div", "ch-bar-row");
+      const bar = svgBox(doc, "ch-bar", "0 0 1000 10", true);
+      bar.append(svgEl(doc, "rect", { class: "ch-track", x: 0, y: 0, width: 1000, height: 10 }));
+      if (shares[i] > 0) bar.append(svgEl(doc, "rect", { class: "ch-fill", x: 0, y: 0, width: Math.round(shares[i] * 1000), height: 10, "fill-opacity": i ? 0.5 : 1 }));
+      row.append(el(doc, "div", "ch-name ch-keep", p.name), el(doc, "div", "ch-value", p.raw), bar);
+      box.append(row);
+    });
+    root.append(box);
+  } else if (chart.type === "line") {
+    const pts = linePoints(chart.points.map((p) => p.value));
+    const plot = el(doc, "div", "ch-plot");
+    const svg = svgBox(doc, "ch-lines", "0 0 100 100", true);
+    for (const y of [14, 53]) svg.append(svgEl(doc, "line", { x1: 0, y1: y, x2: 100, y2: y, class: "ch-grid" }));
+    svg.append(svgEl(doc, "line", { x1: 0, y1: 92, x2: 100, y2: 92, class: "ch-base" }));
+    const path = pts.map((p) => `${p.x},${p.y}`).join(" ");
+    svg.append(svgEl(doc, "polygon", { points: `${pts[0]?.x ?? 0},92 ${path} ${pts[pts.length - 1]?.x ?? 0},92`, class: "ch-area" }), svgEl(doc, "polyline", { points: path, class: "ch-line" }));
+    plot.append(svg);
+    chart.points.forEach((p, i) => {
+      const at = `left:${pts[i].x}%;top:${pts[i].y}%`;
+      const dot = el(doc, "span", "ch-dot");
+      dot.style.cssText = at;
+      const label = el(doc, "span", `ch-pt${i === chart.points.length - 1 ? " is-last" : ""}`, p.raw);
+      label.style.cssText = at;
+      plot.append(dot, label);
+    });
+    const xs = el(doc, "div", "ch-xs");
+    xs.style.gridTemplateColumns = `repeat(${chart.points.length},minmax(0,1fr))`;
+    for (const p of chart.points) xs.append(el(doc, "div", "ch-x ch-keep", p.name));
+    root.append(plot, xs);
+  } else if (chart.type === "donut") {
+    const ring = el(doc, "div", "ch-ring");
+    const svg = svgBox(doc, "ch-donut-svg", "0 0 200 200");
+    ringSegments(chart.points.map((p) => p.value)).forEach((seg, i) => svg.append(svgEl(doc, "circle", {
+      class: "ch-seg", cx: 100, cy: 100, r: RING_R, transform: "rotate(-90 100 100)",
+      "stroke-dasharray": `${seg.length} ${r2(RING_C - seg.length)}`, "stroke-dashoffset": seg.offset, "stroke-opacity": SHADES[i] ?? 0.12,
+    })));
+    ring.append(svg);
+    const lead = chart.points[0];
+    if (lead && chars(lead.raw) <= 7) {
+      const mid = el(doc, "div", "ch-center");
+      mid.append(el(doc, "span", "ch-center-value", lead.raw));
+      ring.append(mid);
+    }
+    const legend = el(doc, "div", "ch-legend");
+    chart.points.forEach((p, i) => {
+      const key = el(doc, "div", "ch-key");
+      const swatch = el(doc, "span", "ch-swatch");
+      swatch.style.opacity = String(SHADES[i] ?? 0.12);
+      key.append(swatch, el(doc, "span", "ch-name ch-keep", p.name), el(doc, "span", "ch-value", p.raw));
+      legend.append(key);
+    });
+    root.append(ring, legend);
+  } else if (chart.type === "flow") {
+    const box = el(doc, "div", "ch-steps");
+    chart.steps.forEach((step, i) => {
+      if (i) {
+        const arrow = svgBox(doc, "ch-arrow", "0 0 40 56");
+        arrow.append(svgEl(doc, "line", { x1: 20, y1: 4, x2: 20, y2: 46, class: "ch-stroke" }), svgEl(doc, "polyline", { points: "8,34 20,48 32,34", class: "ch-stroke" }));
+        box.append(arrow);
+      }
+      const row = el(doc, "div", "ch-step");
+      const words = el(doc, "div", "ch-step-words");
+      words.append(el(doc, "div", "ch-step-text", step.text));
+      if (step.note) words.append(el(doc, "div", "ch-step-note", `→ ${step.note}`));
+      row.append(el(doc, "span", "ch-no", String(i + 1)), words);
+      box.append(row);
+    });
+    root.append(box);
+  } else if (chart.type === "compare") {
+    const grid = el(doc, "div", "ch-table");
+    grid.append(el(doc, "div", "ch-cell is-l is-head ch-keep", chart.left), el(doc, "div", "ch-cell is-r is-head ch-keep", chart.right));
+    chart.rows.forEach(([l, r], i) => {
+      const edge = i === chart.rows.length - 1 ? " is-end" : "";
+      grid.append(el(doc, "div", `ch-cell is-l${edge}`, l), el(doc, "div", `ch-cell is-r${edge}`, r));
+    });
+    root.append(grid);
+  } else if (chart.type === "matrix") {
+    const head = (dir) => {
+      const svg = svgBox(doc, `ch-head-${dir}`, "0 0 24 24");
+      svg.append(svgEl(doc, "polygon", { points: dir === "up" ? "12,2 23,22 1,22" : "22,12 2,1 2,23", class: "ch-mark" }));
+      return svg;
+    };
+    const box = el(doc, "div", "ch-matrix");
+    const yAxis = el(doc, "div", "ch-yaxis");
+    yAxis.append(head("up"), el(doc, "i", "ch-rule"), el(doc, "span", "ch-axis-name", chart.y), el(doc, "i", "ch-rule"));
+    const quads = el(doc, "div", "ch-quads");
+    for (const q of chart.quads) {
+      const cell = el(doc, "div", "ch-quad");
+      cell.append(el(doc, "div", "ch-quad-name ch-keep", q.name), el(doc, "div", "ch-quad-text", q.text));
+      quads.append(cell);
+    }
+    const xAxis = el(doc, "div", "ch-xaxis");
+    xAxis.append(el(doc, "i", "ch-rule"), el(doc, "span", "ch-axis-name", chart.x), el(doc, "i", "ch-rule"), head("right"));
+    box.append(yAxis, quads, el(doc, "span"), xAxis);
+    root.append(box);
+  } else {
+    const box = el(doc, "div", "ch-events");
+    box.style.setProperty("--ch-time-w", `calc(${timeWidth(chart.events.map((e) => e.time))}px*var(--sb-k,1))`);
+    for (const e of chart.events) {
+      const row = el(doc, "div", "ch-ev");
+      const axis = el(doc, "div", "ch-axis");
+      const dot = svgBox(doc, "ch-node", "0 0 36 36");
+      dot.append(svgEl(doc, "circle", { cx: 18, cy: 18, r: 15, class: "ch-node-ring" }), svgEl(doc, "circle", { cx: 18, cy: 18, r: 7, class: "ch-mark" }));
+      axis.append(dot);
+      row.append(el(doc, "div", "ch-time ch-keep", e.time), axis, el(doc, "div", "ch-event", e.event));
+      box.append(row);
+    }
+    root.append(box);
+  }
+  return root;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -713,6 +1022,8 @@ export function buildStructured(doc, kind, text, figure) {
         root.append(row);
       }
       break;
+    case "chart":
+      return buildChart(doc, text);
     case "checklist":
       for (const line of parseChecklist(text)) {
         const row = el(doc, "div", `sb-check${line.done ? " is-done" : ""}`);
@@ -802,7 +1113,7 @@ function grow(card) {
   const body = card.querySelector(".xs-body");
   const content = card.querySelector(".xs-content");
   // Table cells and list items must not gain a line as they grow: 「ChatGPT 账 / 号」 is worse than smaller type.
-  const wrapped = Array.from(content.querySelectorAll("th, td, li"));
+  const wrapped = Array.from(content.querySelectorAll("th, td, li, .ch-keep"));
   const base = wrapped.map(lineCount);
   const fits = () => content.getBoundingClientRect().height <= body.clientHeight * FILL && content.scrollWidth <= body.clientWidth + 2 &&
     wrapped.every((el, i) => lineCount(el) <= base[i]);

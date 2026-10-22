@@ -38,10 +38,10 @@
     },
     {
       "page": 2,
-      "layout": "timeline",
+      "layout": "chart",
       "overflow": 0,
-      "scale": 1.3,
-      "name": "时间线",
+      "scale": 1,
+      "name": "图表",
       "file": "02.png"
     },
     {
@@ -62,10 +62,10 @@
     },
     {
       "page": 5,
-      "layout": "rightwrong",
+      "layout": "chart",
       "overflow": 0,
-      "scale": 1.6,
-      "name": "对错",
+      "scale": 1.1,
+      "name": "图表",
       "file": "05.png"
     },
     {
@@ -96,7 +96,7 @@
       "page": 9,
       "layout": "ending",
       "overflow": 0,
-      "scale": 1,
+      "scale": 1.6,
       "name": "结尾",
       "file": "09.png"
     }

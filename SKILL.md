@@ -5,7 +5,7 @@ description: 把文章、笔记、文档做成小红书图文轮播（3:4，1080
 
 # Hidevinliu · 小红书分镜出图
 
-把一份材料做成一组小红书图文。先分镜、再出图；脚本只负责排版和检查，文字由你按下面的规则写。
+把一份材料做成一组小红书图文。先分镜、再出图；脚本只负责排版和检查，文字由你按下面的规则写。版本 0.2.0。
 
 技能目录记作 `SKILL_DIR`（本文件所在的文件夹）。渲染命令：
 
@@ -21,7 +21,7 @@ node SKILL_DIR/scripts/render.mjs path/to/cards.json --storyboard  # 只把分�
 1. **消化材料**：读用户给的文章或笔记，写下一句「带走点」（读者看完这组图要记住的一句话，≤30 字）。把原文存成 `source.md` 放在 cards.json 旁边，用来核对数字。
 2. **出分镜表，停下等确认**：
    - 先选 1–2 个互动动机（见下表），写清读者会怎么参与。
-   - 列一张表：页码｜版式｜卡片文字｜配图（`none` / `ready` / `yours`）｜配图说明。
+   - 列一张表：页码｜版式｜卡片文字｜配图（`none` / `ready` / `yours` / `draw`）｜配图说明。
    - 封面写 2–3 个版本，各对应一个动机。
    - 发给用户，**等用户确认或修改后再继续**。用户说「直接出」才跳过这一步。
 3. **写 cards.json**：格式见 `references/cards-json.md`，每种版式的写法和字数见 `references/layouts.md`。
@@ -53,6 +53,7 @@ node SKILL_DIR/scripts/render.mjs path/to/cards.json --storyboard  # 只把分�
 - 版式按「这页讲什么」选，不按好看选，别整组都用同一种。第 1 张用 `cover`，最后一张用 `ending`。
 - 字数守 `references/layouts.md` 的上限。超出卡片会报错；脚本会把内容少的结构化卡片自动放大填满。
 - **数字只能来自原文**：提供 `source` 时，卡片、标题、副标题、封面上的每个阿拉伯数字都要在原文里出现，否则报错不出图。
+- **图表只画真数据**：材料里有能放在一起比的一组数字（跑分、耗时、占比、前后变化），或清楚的流程、两边对比、四象限、时间先后时，可以用 1–3 页 `chart`（`figure` 写 `draw`，代码画），行格式见 `references/layouts.md`。数值照原文写，不换算、不四舍五入、不补原文没有的数；凑不出真实数据就别用图表，也不要画装饰图。
 - **不画假截图**：`yours` 是只有用户本人能给的真实截图或照片（自己的软件界面、聊天记录、数据后台、实拍）。用户没给，就让页面保持报错，或者换成不需要图的版式；绝不用生成图、示意图、手搓的界面冒充。`window` / `phone` 版式一定要有真图。
 - 用平实的说法：
   - 不写「不是……而是……」，不写排比，不用金句结尾，不用「绝了」「封神」这类词；
@@ -61,6 +62,6 @@ node SKILL_DIR/scripts/render.mjs path/to/cards.json --storyboard  # 只把分�
 
 ## 文件
 
-- `references/layouts.md`：15 种版式的用途、写法、上限、示例。
+- `references/layouts.md`：16 种版式的用途、写法、上限、示例。
 - `references/cards-json.md`：cards.json 字段说明。
 - `examples/intro/`：完整示例（source.md、cards.json、out/ 里的成品）。

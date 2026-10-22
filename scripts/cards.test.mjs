@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  LAYOUTS, MOTIVES, checkCards, checkDeck, checkMotives, checkNumbers, compareTable, contrast, copyWarnings, derivePalette,
+  LAYOUTS, MOTIVES, barShares, buildChart, chartHeader, checkCards, checkDeck, checkMotives, checkNumbers, compareTable, contrast, copyWarnings, derivePalette,
   escapeHtml, miniMarkdown, normalizeDeck, numbersIn, oklchToRgb, parseAllow, parseChat, parseChecklist, parseCode,
-  parseHex, parseMetrics, parseRightWrong, parseShot, parseTimeline, rgbToOklch, storyboardHtml, storyboardRows, titleSize, toHex,
+  linePoints, magnitude, numberOf, parseChart, parseHex, parseMetrics, parseRightWrong, parseShot, parseTimeline, rgbToOklch, ringSegments, timeWidth, storyboardHtml, storyboardRows, titleSize, toHex,
 } from "../assets/cards.js";
 
 const deckOf = (raw) => {
@@ -15,8 +15,9 @@ const deckOf = (raw) => {
 };
 const card = (layout, text, figure) => ({ layout, text, ...(figure ? { figure } : {}) });
 
-test("15 layouts and 7 motives", () => {
-  assert.equal(LAYOUTS.length, 15);
+test("16 layouts and 7 motives", () => {
+  assert.equal(LAYOUTS.length, 16);
+  assert.equal(LAYOUTS.find((l) => l.id === "chart").name, "图表");
   assert.deepEqual(MOTIVES.map((m) => m.id), ["correct", "result", "fail", "verify", "advise", "relate", "prove"]);
 });
 
@@ -205,4 +206,95 @@ test("Markdown pages (statement, list, steps, compare) scale with --sb-k too, so
   assert.ok(part.includes(".is-list li") && part.includes(".is-compare table"));
   assert.equal([...part.matchAll(/font-size:(\d+)px/g)].length, 0, "every Markdown-page size scales with --sb-k");
   assert.match(part, /font-size:calc\(var\(--statement-size\)\*var\(--sb-k,1\)\)/);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Charts (layout "chart", figure "draw")
+
+test("chart line formats: the first line is the type, then one item per line", () => {
+  assert.deepEqual(chartHeader("柱状：冷启动耗时"), { type: "bar", title: "冷启动耗时" });
+  assert.deepEqual(chartHeader("时间线"), { type: "timeline", title: "" });
+  assert.equal(chartHeader("饼状"), null);
+  assert.match(parseChart("饼状\na｜1").problems[0], /柱状、折线、环形、流程、对比、矩阵、时间轴/);
+  assert.deepEqual(parseChart("柱状\n单位：秒\nuv｜0.06\npip｜1,234.5 s"), { chart: { type: "bar", title: "", unit: "秒", points: [
+    { name: "uv", raw: "0.06", value: 0.06 }, { name: "pip", raw: "1,234.5 s", value: 1234.5 },
+  ] }, problems: [] });
+  assert.equal(numberOf("约 ３x"), 3);
+  assert.equal(numberOf("很快"), null);
+  assert.deepEqual(parseChart("折线\nv1｜10\nv2｜很快").problems, ["「v2」的数值「很快」里没有数字", "折线图要 2–8 项，现在 1 项"]);
+  assert.match(parseChart("环形\n甲｜0\n乙｜3").problems[0], /大于 0/);
+  assert.deepEqual(parseChart("流程\n1. 读材料\n出分镜 → 等确认").chart.steps, [{ text: "读材料", note: "" }, { text: "出分镜", note: "等确认" }]);
+  assert.deepEqual(parseChart("对比\n以前｜现在\n手写｜AI 写").chart, { type: "compare", title: "", left: "以前", right: "现在", rows: [["手写", "AI 写"]] });
+  assert.match(parseChart("对比\n以前｜现在\n只有左边").problems[0], /只有一边/);
+  const matrix = parseChart("矩阵\n横轴：投入\n纵轴：收益\n先做｜a\n规划｜b\n顺手｜c\n不做｜d");
+  assert.deepEqual([matrix.chart.x, matrix.chart.y, matrix.chart.quads.length, matrix.problems], ["投入", "收益", 4, []]);
+  assert.deepEqual(parseChart("矩阵\n投入\n收益\na｜1").problems, ["矩阵图要正好 4 个象限（左上、右上、左下、右下），现在 1 个"]);
+  assert.deepEqual(parseChart("时间轴\n2024｜发布\n2025｜开源").chart.events, [{ time: "2024", event: "发布" }, { time: "2025", event: "开源" }]);
+  assert.match(parseChart("时间轴\n2024｜发布\n没时间").problems[0], /没有时间/);
+});
+
+test("durations are drawn by their length in any time unit; units that can't share an axis block", () => {
+  assert.deepEqual(magnitude("8m30s"), { value: 510, unit: "time" });
+  assert.deepEqual(magnitude("0.082s (1.00x)"), { value: 0.082, unit: "time" });
+  assert.deepEqual(magnitude("5M"), { value: 5, unit: "M" });
+  const { chart, problems } = parseChart("柱状\nripgrep｜15.569s\nGNU grep｜32.409s\nGNU grep Unicode｜8m30s");
+  assert.deepEqual(problems, []);
+  assert.deepEqual(barShares(chart.points.map((p) => p.value)), [0.031, 0.064, 1]);
+  assert.deepEqual(parseChart("柱状\n大小｜3 MB\n耗时｜2 秒").problems, ["数值的单位不一致（「大小」是 MB，「耗时」是 时间）：一张图只放同一种单位，或拆成两张图"]);
+});
+
+test("chart geometry is deterministic", () => {
+  assert.deepEqual(barShares([4, 2, 1]), [1, 0.5, 0.25]);
+  assert.deepEqual(linePoints([0, 10]), [{ x: 25, y: 92 }, { x: 75, y: 14 }]);
+  const segs = ringSegments([1, 1]);
+  assert.equal(segs[0].offset, 0);
+  assert.ok(Math.abs(segs[1].offset + 245.04) < 0.05);
+  assert.ok(timeWidth(["2024 年"]) < timeWidth(["2024 年 10 月"]));
+});
+
+/** Just enough DOM for buildChart in Node: elements, SVG elements, attributes, classes, text and inline style. */
+function fakeDocument() {
+  const make = (tag, ns = "html") => ({
+    tagName: tag, ns, children: [], attributes: {}, className: "", textContent: "",
+    style: { cssText: "", props: {}, setProperty(k, v) { this.props[k] = v; } },
+    setAttribute(k, v) { this.attributes[k] = String(v); if (k === "class") this.className = String(v); },
+    append(...kids) { this.children.push(...kids); },
+    all() { return this.children.flatMap((c) => [c, ...c.all()]); },
+    find(pred) { return this.all().filter(pred); },
+  });
+  return { createElement: (tag) => make(tag), createElementNS: (_, tag) => make(tag, "svg") };
+}
+const hasClass = (cls) => (n) => n.className.split(/\s+/).includes(cls);
+
+test("charts draw SVG marks and HTML text, values exactly as written, the copy never in markup", () => {
+  const doc = fakeDocument();
+  const bar = buildChart(doc, "柱状：耗时\nuv｜0.06 秒\npip｜4.6 秒");
+  assert.ok(hasClass("ch-is-bar")(bar));
+  assert.deepEqual(bar.find(hasClass("ch-value")).map((n) => n.textContent), ["0.06 秒", "4.6 秒"]);
+  assert.deepEqual(bar.find(hasClass("ch-fill")).map((n) => [n.ns, n.tagName, n.attributes.width]), [["svg", "rect", "13"], ["svg", "rect", "1000"]]);
+  const line = buildChart(doc, "折线\nv1｜30\nv2｜20\nv3｜10");
+  assert.equal(line.find(hasClass("ch-line"))[0].attributes.points, "16.67,14 50,40 83.33,66");
+  assert.equal(line.find(hasClass("ch-dot")).length, 3);
+  const donut = buildChart(doc, "环形\n文档｜45%\n代码｜30%\n测试｜25%");
+  assert.equal(donut.find(hasClass("ch-seg")).length, 3);
+  assert.equal(donut.find(hasClass("ch-center-value"))[0].textContent, "45%");
+  assert.equal(buildChart(doc, "流程\na\nb\nc").find((n) => n.tagName === "svg").length, 2);
+  assert.equal(buildChart(doc, "对比\n以前｜现在\na｜b\nc｜d").find(hasClass("ch-cell")).length, 6);
+  assert.equal(buildChart(doc, "矩阵\n横轴：x\n纵轴：y\na｜1\nb｜2\nc｜3\nd｜4").find(hasClass("ch-quad")).length, 4);
+  assert.equal(buildChart(doc, "时间轴\n2024｜a\n2025｜b").find(hasClass("ch-node")).length, 2);
+  assert.match(buildChart(doc, "随便写写").find(hasClass("sb-todo"))[0].textContent, /图表格式不对/);
+  const evil = buildChart(doc, "柱状：<img src=x onerror=alert(1)>\n<script>｜1\n\" onload=\"x｜2");
+  assert.equal(evil.find((n) => n.tagName === "img" || n.tagName === "script").length, 0);
+  for (const n of evil.all()) for (const v of Object.values(n.attributes)) assert.doesNotMatch(v, /alert|onload|script/);
+});
+
+test("a chart blocks on a wrong line format; its numbers are traced to the source like every card", () => {
+  const deck = deckOf({ title: "t", source: "source.md", cards: [card("cover", "封面"), card("chart", "柱状：3 个工具\nuv｜0.06 秒\npip｜4.6 秒\npoetry｜12 秒", { source: "draw", note: "耗时" }), card("chart", "矩阵\n横轴：a\n纵轴：b\n甲｜x", { source: "draw", note: "" }), card("statement", "一句话", { source: "draw", note: "" }), card("ending", "你呢？")] });
+  assert.deepEqual(deck.cards[1].figure, { source: "draw", note: "耗时" });
+  const issues = checkDeck(deck, { source: "uv 装依赖 0.06 秒，pip 要 4.6 秒。" });
+  const byPage = (p) => issues.filter((i) => i.page === p).map((i) => `${i.level} ${i.message}`);
+  assert.ok(byPage(2).some((m) => m.startsWith("error 第 2 张的数字 3、12 在原文里找不到")), byPage(2).join("\n"));
+  assert.ok(byPage(3).some((m) => m.startsWith("error 第 3 张的图表：矩阵图要正好 4 个象限")), byPage(3).join("\n"));
+  assert.ok(byPage(4).some((m) => m.startsWith("warn 第 4 张的 figure 是 draw")), byPage(4).join("\n"));
+  assert.match(storyboardHtml(deck), /代码画/);
 });
